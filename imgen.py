@@ -41,7 +41,7 @@ def splitImage(image, labelDir):
                          "coord": (xmin, ymin, xmax, ymax) })
     return regions
 
-def cropFace(img, coord, dim = (50,50)):
+def cropFace(img, coord, dim = (100,100)):
     cropped = img[coord[1] : coord[3], coord[0] : coord[2]]
     return cv2.resize(cropped, dim)
 
