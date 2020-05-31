@@ -5,7 +5,6 @@ import cv2
 import random
 import progressbar
 
-# image splitting inspired by
 imagePath = "./medical-mask-set/images/"
 labelPath = "./medical-mask-set/labels/"
 
