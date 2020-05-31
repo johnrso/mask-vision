@@ -2,8 +2,27 @@ from xml.etree import ElementTree
 import os
 import shutil
 import cv2
+import random
+import progressbar
 
 # image splitting inspired by
+imagePath = "./medical-mask-set/images/"
+labelPath = "./medical-mask-set/labels/"
+
+paths = ["./cropped/",
+         "./cropped/good/",
+         "./cropped/bad/",
+         "./cropped/none/"]
+
+data = ["./data/",
+         "./data/train/",
+         "./data/test/",
+         "./data/train/good/",
+         "./data/train/bad/",
+         "./data/train/none/",
+         "./data/test/good/",
+         "./data/test/bad/",
+         "./data/test/none/"]
 
 def imageToXML(imagePath, labelDir):
     name = os.path.splitext(os.path.basename(imagePath))[0] + ".xml"
@@ -38,6 +57,11 @@ def processImage(image, labelDir):
         label = ROI["label"]
         image = cropFace(full, ROI["coord"])
 
+        #files incorrectly labeled?
+        if label == "bad":
+            label = "none"
+        elif label == "none":
+            label = "bad"
         try:
             filepath = os.path.join(paths[0], label, name + str(ind) + ".jpeg")
             cv2.imwrite(filepath, image)
@@ -45,55 +69,76 @@ def processImage(image, labelDir):
         except CV2.error:
             print("image unsuccessfully saved.")
 
-def splitImages():
+def cropImages():
+    print("extracting faces.")
+    for p in paths:
+        if not os.path.exists(p):
+            try:
+                os.mkdir(p)
+            except OSError:
+                print("error encountered while creating " + p)
 
-imagePath = "./medical-mask-set/images/"
-labelPath = "./medical-mask-set/labels/"
+    widgets = [progressbar.Timer(format='elapsed time: %(elapsed)s',),
+               " ", progressbar.AnimatedMarker(markers='.oO@* ')]
+    bar = progressbar.ProgressBar(widgets=widgets)
 
-paths = ["./cropped/",
-         "./cropped/good/",
-         "./cropped/bad/",
-         "./cropped/none/"]
+    for image in os.listdir(imagePath):
+        processImage(os.path.join(imagePath, image), labelPath)
+        bar.update()
+    print()
+    print()
+    for p in paths[1:]:
+        print(p + ": " + str(len(os.listdir(p))) + " images.")
 
-for p in paths:
-    if not os.path.exists(p):
-        try:
-            os.mkdir(p)
-        except OSError:
-            print("error encountered while creating " + p)
+    print()
+    print("finished extracting faces.")
+    print()
 
-for image in os.listdir(imagePath):
-    processImage(os.path.join(imagePath, image), labelPath)
+def splitData():
+    print("splitting data.")
+    for p in data:
+        if not os.path.exists(p):
+            try:
+                os.mkdir(p)
+            except OSError:
+                print("error encountered while creating " + p)
 
-goodImg = len(os.listdir(paths[1]))
-badImg = len(os.listdir(paths[2]))
-noneImg = len(os.listdir(paths[3]))
+    train_test = [.8, .2]
 
-print("total number of good faces: " + str(goodImg))
-print("total number of bad faces: " + str(badImg))
-print("total number of no masks: " + str(noneImg))
-print()
-print("finished extracting features. now spliting data.")
+    widgets = [progressbar.Timer(format='elapsed time: %(elapsed)s',),
+                   " ", progressbar.AnimatedMarker(markers='.oO@* ')]
+    bar = progressbar.ProgressBar(widgets=widgets)
 
-data = ["./data/",
-         "./data/train/",
-         "./data/train/good/",
-         "./data/train/bad/",
-         "./data/train/none/",
-         "./data/test/",
-         "./data/test/good/",
-         "./data/test/bad/",
-         "./data/test/none/",
-         "./data/val/",
-         "./data/val/good/",
-         "./data/val/bad/",
-         "./data/val/none/",]
 
-for p in data:
-    if not os.path.exists(p):
-        try:
-            os.mkdir(p)
-        except OSError:
-            print("error encountered while creating " + p)
+    for path in paths[1:]:
+        dir = os.listdir(path)
+        name = os.path.basename(os.path.dirname(path))
+        split = int(train_test[1] * len(dir))
+        test_split = random.choices(dir, k = split)
+        for file in dir:
+            orig = os.path.join(path, file)
+            if file not in test_split:
+                filepath = os.path.join(data[1], name)
+            else:
+                filepath = os.path.join(data[2], name)
+            shutil.copy(orig, filepath)
+            bar.update()
 
-train_test_val = [.7, .2, .1]
+    print()
+    print()
+    for p in data[3:]:
+        print(p + ": " + str(len(os.listdir(p))) + " images.")
+
+    print()
+    print("finished splitting data.")
+    print()
+
+def clearDir():
+    print("\nclearing existing data.")
+    shutil.rmtree(paths[0], ignore_errors = True)
+    shutil.rmtree(data[0], ignore_errors = True)
+    print()
+
+clearDir()
+cropImages()
+splitData()
